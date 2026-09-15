@@ -309,6 +309,37 @@ int simplePEXSI(MPI_Comm comm_PEXSI,
                         &numTotalInertiaIter, // Number of total inertia[out]
                         // &numTotalPEXSIIter,   // number of total pexsi evaluation procedure[out]
                         &info);               // 0: successful; otherwise: unsuccessful
+
+        // PEXSI returns both the chemical potential it used and the number of
+        // electrons it obtained *before* rescaling the density matrix, and ABACUS
+        // drops both.  With options.nPoints == 1 (hardcoded in loadPEXSIOption)
+        // PEXSI evaluates the density matrix at a single mu and then multiplies DM
+        // and EDM by numElectronExact / numElectronPEXSI, so the returned density
+        // matrix always carries exactly numElectronExact electrons even when mu is
+        // far away from the Fermi level; E_Fermi stays 0 as well, so a wrong mu is
+        // invisible in the output.  numElectronPEXSI is that pre-scaling count and
+        // therefore the only available indicator of a wrong mu.
+        if (comm_PEXSI != MPI_COMM_NULL && myid == 0)
+        {
+            GlobalV::ofs_running << " PEXSI: mu = " << mu << " Ry ; electrons before rescaling = "
+                                 << nelec << " ; exact = " << numElectronExact
+                                 << " ; deficit = " << numElectronExact - nelec
+                                 << " ; rescale factor = " << numElectronExact / nelec << std::endl;
+            if (std::fabs(nelec - numElectronExact) > 1.0)
+            {
+                GlobalV::ofs_warning
+                    << " PEXSI: the density matrix was rescaled by " << numElectronExact / nelec
+                    << " because the chemical potential search accounted for only " << nelec
+                    << " electrons (exact " << numElectronExact << ")." << std::endl
+                    << " PEXSI's chemical potential (" << mu
+                    << " Ry) is discarded by ABACUS, so the returned density matrix can carry the"
+                    << " exact charge while its occupations are wrong." << std::endl
+                    << " Set pexsi_mu_lower/pexsi_mu_upper around the Fermi level (the E_Fermi of a"
+                    << " genelpa run of the same system) and keep that window wide enough to contain"
+                    << " the drift of mu during the SCF; pexsi_mu_selfsolve does this"
+                    << " automatically." << std::endl;
+            }
+        }
         // LiuXh modify 2021-04-29, add DONE(ofs_running,"xx") for test
         ModuleBase::timer::tick("Diago_LCAO_Matrix", "PEXSIDFT");
 
