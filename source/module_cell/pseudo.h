@@ -75,6 +75,23 @@ class pseudo
     ModuleBase::realArray qfuncl; // qfuncl(2*lmax+1,nbeta*(nbeta+1)/2,mesh) Q_{mu,nu}(|r|) function for |r|> r_L
     ModuleBase::matrix qqq;       // qqq(nbeta,nbeta) q_{mu,nu}
 
+    /**
+     * @brief Groups the beta projectors by angular momentum.
+     *
+     * ABACUS assumes that the projectors of a pseudopotential are listed by increasing
+     * angular momentum and, within one angular momentum, in order of appearance, because
+     * the two-center <orbital|beta> tables, the (l,izeta) -> index map of a RadialSet and
+     * the coupling matrix D_ij are all addressed that way. The UPF format does not
+     * require such a grouping though, so a file listing e.g. l = 0,0,1,2,3,1 is read with
+     * its labels attached to the wrong radial functions.
+     *
+     * This function restores the assumption by permuting the projectors together with the
+     * matching rows and columns of D_ij, which leaves the nonlocal operator
+     * sum_ij |beta_i> D_ij <beta_j| unchanged. A pseudopotential whose projectors are
+     * already grouped is left untouched.
+     */
+    void group_proj_by_l();
+
     void print_pseudo_h(std::ofstream& ofs);
     void print_pseudo_atom(std::ofstream& ofs);
     void print_pseudo_vl(std::ofstream& ofs);

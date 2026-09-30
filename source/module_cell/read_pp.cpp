@@ -65,6 +65,14 @@ int Pseudopot_upf::init_pseudo_reader(const std::string &fn, std::string &type, 
         return 4;
     }
 
+	// A pseudopotential file does not have to list its projectors by increasing angular
+	// momentum, while the rest of the code assumes that it does. Restore that assumption
+	// once here, for every file format.
+	if (info == 0)
+	{
+		pp.group_proj_by_l();
+	}
+
 	return info;
 }
 

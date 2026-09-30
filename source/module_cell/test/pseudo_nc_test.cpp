@@ -21,6 +21,7 @@
  *   - print_pseudo_atom
  *   - print_pseudo_vl
  *   - print_pseudo
+ *   - group_proj_by_l
  */
 
 #define private public
@@ -128,4 +129,53 @@ TEST_F(NCPPTest, PrintNC)
 	EXPECT_THAT(str,testing::HasSubstr("msh\t1247"));
 	ifs.close();
 	remove("./tmp_log");
+}
+
+TEST(NCPPStandaloneTest, GroupProjByL)
+{
+	// a pseudopotential that lists its projectors as l = 0,0,1,2,3,1, i.e. not grouped
+	// by angular momentum (UPF does not require the grouping)
+	pseudo pp;
+	pp.nbeta = 6;
+	pp.mesh = 4;
+	pp.lll = {0, 0, 1, 2, 3, 1};
+	pp.betar.create(6, 4);
+	pp.dion.create(6, 6);
+	for (int i = 0; i < 6; ++i)
+	{
+		for (int ir = 0; ir < 4; ++ir)
+		{
+			pp.betar(i, ir) = 10.0 * i + ir;
+		}
+		for (int j = 0; j < 6; ++j)
+		{
+			pp.dion(i, j) = 100.0 * i + j;
+		}
+	}
+
+	pp.group_proj_by_l();
+
+	// the projectors and the matching rows/columns of dion are permuted together
+	const std::vector<int> expected_l = {0, 0, 1, 1, 2, 3};
+	const std::vector<int> expected_source = {0, 1, 2, 5, 3, 4};
+	for (int i = 0; i < 6; ++i)
+	{
+		EXPECT_EQ(pp.lll[i], expected_l[i]);
+		for (int ir = 0; ir < 4; ++ir)
+		{
+			EXPECT_DOUBLE_EQ(pp.betar(i, ir), 10.0 * expected_source[i] + ir);
+		}
+		for (int j = 0; j < 6; ++j)
+		{
+			EXPECT_DOUBLE_EQ(pp.dion(i, j), 100.0 * expected_source[i] + expected_source[j]);
+		}
+	}
+
+	// a pseudopotential that is already grouped is left untouched
+	pp.group_proj_by_l();
+	for (int i = 0; i < 6; ++i)
+	{
+		EXPECT_EQ(pp.lll[i], expected_l[i]);
+		EXPECT_DOUBLE_EQ(pp.betar(i, 0), 10.0 * expected_source[i]);
+	}
 }
